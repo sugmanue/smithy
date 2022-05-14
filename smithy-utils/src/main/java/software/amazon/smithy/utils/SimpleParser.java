@@ -37,6 +37,8 @@ public class SimpleParser {
     private int column = 1;
     private int nestingLevel = 0;
 
+    public static final char EOF = Character.MIN_VALUE;
+
     /**
      * Creates a new SimpleParser and sets the expression to parse.
      *
@@ -135,7 +137,7 @@ public class SimpleParser {
     public final char peek(int offset) {
         int target = position + offset;
         if (target >= length || target < 0) {
-            return Character.MIN_VALUE;
+            return EOF;
         }
 
         return expression.charAt(target);
@@ -164,7 +166,7 @@ public class SimpleParser {
      */
     public final String peekSingleCharForMessage() {
         char peek = peek();
-        return peek == Character.MIN_VALUE ? "[EOF]" : String.valueOf(peek);
+        return peek == EOF ? "[EOF]" : String.valueOf(peek);
     }
 
     /**
