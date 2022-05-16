@@ -10,8 +10,7 @@ interface StatementParser {
     final class ControlParser implements StatementParser {
         @Override
         public Statement parse(Lexer lexer) {
-            Token peek = lexer.peek();
-            if (peek.getType() != Token.Type.DOLLAR) {
+            if (lexer.peek().getType() != Token.Type.DOLLAR) {
                 return null;
             }
 
@@ -34,8 +33,7 @@ interface StatementParser {
     final class MetadataParser implements StatementParser {
         @Override
         public Statement parse(Lexer lexer) {
-            Token peek = lexer.peek();
-            if (peek.getType() != Token.Type.IDENTIFIER || !lexer.getLexeme(peek).equals("metadata")) {
+            if (!lexer.isPeek("metadata")) {
                 return null;
             }
 
@@ -58,8 +56,7 @@ interface StatementParser {
     final class NamespaceParser implements StatementParser {
         @Override
         public Statement parse(Lexer lexer) {
-            Token peek = lexer.peek();
-            if (peek.getType() != Token.Type.IDENTIFIER || !lexer.getLexeme(peek).equals("namespace")) {
+            if (!lexer.isPeek("namespace")) {
                 return null;
             }
 
