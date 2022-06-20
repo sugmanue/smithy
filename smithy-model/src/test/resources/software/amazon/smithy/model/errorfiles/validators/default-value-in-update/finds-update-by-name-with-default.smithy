@@ -7,7 +7,7 @@ operation UpdateFoo {
         @required
         id: String
 
-        @default
+        @default("")
         description: String
     }
     output := {}

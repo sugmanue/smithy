@@ -260,7 +260,7 @@ structure httpApiKeyAuth {
     // member was previously marked as required.
     breakingChanges: [{change: "remove"}]
 )
-structure default {}
+document default
 
 /// Requires that non-authoritative generators like clients treat a structure member as
 /// nullable regardless of if the member is also marked with the required trait.

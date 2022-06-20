@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,33 +15,45 @@
 
 package software.amazon.smithy.model.traits;
 
-import java.util.Collections;
 import software.amazon.smithy.model.SourceLocation;
 import software.amazon.smithy.model.node.Node;
-import software.amazon.smithy.model.node.ObjectNode;
 import software.amazon.smithy.model.shapes.ShapeId;
 
 /**
  * Indicates that a shape is defaulted, meaning a zero value is used when one is not provided.
  */
-public final class DefaultTrait extends AnnotationTrait {
+public final class DefaultTrait implements Trait {
+
     public static final ShapeId ID = ShapeId.from("smithy.api#default");
+    private final Node value;
 
-    public DefaultTrait(ObjectNode node) {
-        super(ID, node);
+    public DefaultTrait(Node value) {
+        this.value = value;
     }
 
-    public DefaultTrait(SourceLocation location) {
-        this(new ObjectNode(Collections.emptyMap(), location));
+    @Override
+    public ShapeId toShapeId() {
+        return ID;
     }
 
-    public DefaultTrait() {
-        this(Node.objectNode());
+    @Override
+    public SourceLocation getSourceLocation() {
+        return value.getSourceLocation();
     }
 
-    public static final class Provider extends AnnotationTrait.Provider<DefaultTrait> {
+    @Override
+    public Node toNode() {
+        return value;
+    }
+
+    public static final class Provider extends AbstractTrait.Provider {
         public Provider() {
-            super(ID, DefaultTrait::new);
+            super(ID);
+        }
+
+        @Override
+        public Trait createTrait(ShapeId target, Node value) {
+            return new DefaultTrait(value);
         }
     }
 }
