@@ -130,7 +130,7 @@ final class ModelUpgrader {
             builder = createOrReuseBuilder(member, builder);
 
             if (target.isBooleanShape()) {
-                builder.addTrait(new DefaultTrait(new BooleanNode(true, builder.getSourceLocation())));
+                builder.addTrait(new DefaultTrait(new BooleanNode(false, builder.getSourceLocation())));
             } else if (target.isBlobShape()) {
                 builder.addTrait(new DefaultTrait(new StringNode("", builder.getSourceLocation())));
             } else {

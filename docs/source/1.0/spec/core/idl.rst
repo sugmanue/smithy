@@ -742,17 +742,10 @@ The following defines an :ref:`enum` shape with traits:
     namespace smithy.example
 
     enum Suit {
-        @enumValue("DIAMOND")
-        DIAMOND
-
-        @enumValue("CLUB")
-        CLUB
-
-        @enumValue("HEART")
-        HEART
-
-        @enumValue("SPADE")
-        SPADE
+        DIAMOND = "DIAMOND"
+        CLUB = "CLUB"
+        HEART = "HEART"
+        SPADE = "SPADE"
     }
 
 
@@ -777,17 +770,10 @@ The following example defines an :ref:`intEnum` shape:
     namespace smithy.example
 
     intEnum Suit {
-        @enumValue(1)
-        DIAMOND
-
-        @enumValue(2)
-        CLUB
-
-        @enumValue(3)
-        HEART
-
-        @enumValue(4)
-        SPADE
+        DIAMOND = 1
+        CLUB = 2
+        HEART = 3
+        SPADE = 4
     }
 
 

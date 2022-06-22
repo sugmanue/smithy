@@ -397,8 +397,7 @@ The following example defines a shape for each simple type in the
             FOO
         }
         intEnum IntEnum {
-            @enumValue(1)
-            FOO
+            FOO = 1
         }
 
     .. code-tab:: json
@@ -499,17 +498,10 @@ applying the :ref:`enumValue trait <enumValue-trait>`.
 .. code-block:: smithy
 
     enum Suit {
-        @enumValue("diamond")
-        DIAMOND
-
-        @enumValue("club")
-        CLUB
-
-        @enumValue("heart")
-        HEART
-
-        @enumValue("spade")
-        SPADE
+        DIAMOND = "diamond"
+        CLUB = "club"
+        HEART = "heart"
+        SPADE = "spade"
     }
 
 Enums do not support aliasing; all values MUST be unique.
@@ -531,9 +523,8 @@ enum members always have a value
 --------------------------------
 
 If an enum member doesn't have an explicit :ref:`enumValue <enumValue-trait>`
-or :ref:`enumDefault <enumDefault-trait>` trait, an :ref:`enumValue-trait`
-will be automatically added to the member where the trait value is the member's
-name.
+trait, an :ref:`enumValue-trait` is implicitly added to the member with the
+trait value set to the member's name.
 
 The following model:
 
@@ -551,17 +542,10 @@ Is equivalent to:
 .. code-block:: smithy
 
     enum Suit {
-        @enumValue("DIAMOND")
-        DIAMOND
-
-        @enumValue("CLUB")
-        CLUB
-
-        @enumValue("HEART")
-        HEART
-
-        @enumValue("SPADE")
-        SPADE
+        DIAMOND = "DIAMOND"
+        CLUB = "CLUB"
+        HEART = "HEART"
+        SPADE = "SPADE"
     }
 
 .. _intEnum:
@@ -576,20 +560,11 @@ set to a unique integer value. The following example defines an intEnum shape:
 .. code-block:: smithy
 
     intEnum FaceCard {
-        @enumValue(1)
-        JACK
-
-        @enumValue(2)
-        QUEEN
-
-        @enumValue(3)
-        KING
-
-        @enumValue(4)
-        ACE
-
-        @enumValue(5)
-        JOKER
+        JACK = 1
+        QUEEN = 2
+        KING = 3
+        ACE = 4
+        JOKER = 5
     }
 
 intEnum member names SHOULD NOT contain any lowercase ASCII Latin letters
@@ -985,9 +960,7 @@ A structure member can be given a default zero value using the
         @required
         years: Integer
 
-        // Defaults to 0
-        @default
-        days: Integer
+        days: Integer = 0
     }
 
 .. important::
@@ -1020,11 +993,8 @@ example, the previous ``TimeSpan`` model can be backward compatibly changed to:
 
     structure TimeSpan {
         // @required is replaced with @default
-        @default
-        years: Integer
-
-        @default
-        days: Integer
+        years: Integer = 0
+        days: Integer = 0
     }
 
 .. rubric:: Requiring members to be nullable

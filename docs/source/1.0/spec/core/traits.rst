@@ -75,42 +75,6 @@ Value type
     :ref:`Defining traits <defining-traits>`.
 
 
-.. smithy-trait:: smithy.api#enumDefault
-.. _enumDefault-trait:
-
----------------------
-``enumDefault`` trait
----------------------
-
-Summary
-    Indicates that the targeted :ref:`enum` or :ref:`intEnum` member represents
-    the default value.
-Trait selector
-    ``:is(enum, intEnum) > member``
-Value type
-    Annotation trait.
-
-The ``enumDefault`` trait can be applied to a member of an :ref:`enum`
-or :ref:`intEnum` to indicate that that member should be used for the
-default value of the enum.
-
-.. seealso::
-    the :ref:`default-values` for the value of the default enum.
-
-.. code-block::
-
-    $version: "2.0"
-
-    namespace smithy.example
-
-    enum Enum {
-        @enumDefault
-        DEFAULT
-
-        NON_DEFAULT
-    }
-
-
 .. smithy-trait:: smithy.api#enumValue
 .. _enumValue-trait:
 
@@ -136,14 +100,16 @@ Defines the value of an :ref:`enum` or :ref:`intEnum`. For
     namespace smithy.example
 
     enum Enum {
-        @enumValue("foo")
-        FOO
+        FOO = "foo"
     }
 
     intEnum IntEnum {
-        @enumValue(1)
-        FOO
+        FOO = 1
     }
+
+.. note::
+
+    The value of a string enum MUST NOT be set to an empty string.
 
 
 .. smithy-trait:: smithy.api#noReplace

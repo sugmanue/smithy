@@ -38,8 +38,7 @@ has a default zero value:
 .. code-block:: smithy
 
     structure Message {
-        @default
-        title: String // defaults to ""
+        title: String = ""
     }
 
 .. seealso::

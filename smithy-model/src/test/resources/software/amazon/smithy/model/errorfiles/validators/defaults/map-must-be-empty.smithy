@@ -3,8 +3,7 @@ $version: "2.0"
 namespace smithy.example
 
 structure Foo {
-    @default(foo: "bar")
-    bar: StringMap
+    bar: StringMap = {foo: "bar"}
 }
 
 map StringMap {
