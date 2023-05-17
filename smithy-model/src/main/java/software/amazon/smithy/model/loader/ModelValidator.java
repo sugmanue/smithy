@@ -32,6 +32,7 @@ import software.amazon.smithy.model.traits.SuppressTrait;
 import software.amazon.smithy.model.validation.Severity;
 import software.amazon.smithy.model.validation.ValidatedResult;
 import software.amazon.smithy.model.validation.ValidationEvent;
+import software.amazon.smithy.model.validation.ValidationEventDecorator;
 import software.amazon.smithy.model.validation.Validator;
 import software.amazon.smithy.model.validation.ValidatorFactory;
 import software.amazon.smithy.model.validation.suppressions.Suppression;
@@ -65,6 +66,7 @@ final class ModelValidator {
     );
 
     private final List<Validator> validators = new ArrayList<>();
+    private final List<ValidationEventDecorator> validationEventDecorators = new ArrayList<>();
     private final List<Suppression> suppressions = new ArrayList<>();
     private final List<ValidationEvent> includeEvents = new ArrayList<>();
     private ValidatorFactory validatorFactory;
@@ -90,6 +92,29 @@ final class ModelValidator {
      */
     public ModelValidator addValidator(Validator validator) {
         validators.add(Objects.requireNonNull(validator));
+        return this;
+    }
+
+    /**
+     * Adds a custom {@link ValidationEventDecorator} to the ModelValidator.
+     *
+     * @param decorator Decorator to add.
+     * @return Returns the ModelValidator.
+     */
+    public ModelValidator addValidationEventDecorator(ValidationEventDecorator decorator) {
+        validationEventDecorators.add(Objects.requireNonNull(decorator));
+        return this;
+    }
+
+    /**
+     * Sets the custom {@link ValidationEventDecorator}s to use when running the ModelValidator.
+     *
+     * @param decorators Decorators to set.
+     * @return Returns the ModelValidator.
+     */
+    public ModelValidator validationEventDecorators(Collection<? extends ValidationEventDecorator> decorators) {
+        this.validationEventDecorators.clear();
+        decorators.forEach(this::addValidationEventDecorator);
         return this;
     }
 
@@ -186,6 +211,8 @@ final class ModelValidator {
             // which will only obscure the root cause.
             coreEvents.addAll(suppressEvents(model, new TargetValidator().validate(model), modelSuppressions));
             coreEvents.addAll(suppressEvents(model, new ResourceCycleValidator().validate(model), modelSuppressions));
+            // Decorate all the events
+            coreEvents = decorateEvents(validationEventDecorators, coreEvents);
             // Emit any events that have already occurred.
             coreEvents.forEach(eventListener);
 
@@ -194,7 +221,9 @@ final class ModelValidator {
             }
 
             List<ValidationEvent> result = modelValidators.parallelStream()
-                    .flatMap(validator -> validator.validate(model).stream())
+                    .map(validator -> validator.validate(model))
+                    .map(events -> decorateEvents(validationEventDecorators, events))
+                    .flatMap(Collection::stream)
                     .filter(ModelValidator::filterPrelude)
                     .map(event -> suppressEvent(model, event, modelSuppressions))
                     // Emit events as they occur during validation.
@@ -212,6 +241,34 @@ final class ModelValidator {
 
             return result;
         };
+    }
+
+    /**
+     * Applies each of the given decorators to each of the validation events and returns the resulting list of
+     * validation events.
+     *
+     * @param decorators The decorators to apply
+     * @param events The events to decorate
+     * @return The decorated events
+     */
+    public static List<ValidationEvent> decorateEvents(
+        List<ValidationEventDecorator> decorators,
+        List<ValidationEvent> events
+    ) {
+        if (!decorators.isEmpty()) {
+            List<ValidationEvent> decorated = new ArrayList<>(events.size());
+            for (ValidationEventDecorator decorator : decorators) {
+                for (ValidationEvent event : events) {
+                    if (decorator.canDecorate(event)) {
+                        decorated.add(decorator.decorate(event));
+                    } else {
+                        decorated.add(event);
+                    }
+                }
+            }
+            return decorated;
+        }
+        return events;
     }
 
     private List<Validator> resolveStaticValidators() {
