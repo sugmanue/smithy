@@ -16,8 +16,8 @@
 package software.amazon.smithy.aws.traits.tagging;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,13 +40,13 @@ import software.amazon.smithy.model.validation.ValidationEvent;
 public final class TaggableResourceValidator extends AbstractValidator {
     @Override
     public List<ValidationEvent> validate(Model model) {
-        List<ValidationEvent> events = new LinkedList<>();
+        List<ValidationEvent> events = new ArrayList<>();
         TopDownIndex topDownIndex = TopDownIndex.of(model);
         AwsTagIndex tagIndex = AwsTagIndex.of(model);
         for (ServiceShape service : model.getServiceShapes()) {
             for (ResourceShape resource : topDownIndex.getContainedResources(service)) {
                 boolean resourceLikelyTaggable = false;
-                if (resource.hasTrait(TaggableTrait.class)) {
+                if (resource.hasTrait(TaggableTrait.class) && service.getResources().contains(resource.getId())) {
                     events.addAll(validateResource(model, resource, service, tagIndex));
                     resourceLikelyTaggable = true;
                 } else if (resource.hasTrait(ArnTrait.class) && tagIndex.serviceHasTagApis(service)) {
@@ -72,7 +72,7 @@ public final class TaggableResourceValidator extends AbstractValidator {
             ServiceShape service,
             AwsTagIndex awsTagIndex
     ) {
-        List<ValidationEvent> events = new LinkedList<>();
+        List<ValidationEvent> events = new ArrayList<>();
         // Generate danger if resource has tag property in update API.
         if (awsTagIndex.isResourceTagOnUpdate(resource.getId())) {
             Shape operation = resource.getUpdate().isPresent()
@@ -174,7 +174,7 @@ public final class TaggableResourceValidator extends AbstractValidator {
     }
 
     private Collection<Map.Entry<MemberShape, Shape>> collectMemberTargetShapes(ShapeId ioShapeId, Model model) {
-        Collection<Map.Entry<MemberShape, Shape>> collection = new LinkedList<>();
+        Collection<Map.Entry<MemberShape, Shape>> collection = new ArrayList<>();
         for (MemberShape memberShape : model.expectShape(ioShapeId).members()) {
             collection.add(new AbstractMap.SimpleImmutableEntry<>(
                     memberShape, model.expectShape(memberShape.getTarget())));
