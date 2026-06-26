@@ -260,7 +260,7 @@ final class SelectCommand implements Command {
         Options options = arguments.getReceiver(Options.class);
         rejectFilesystemFlags(arguments);
 
-        CallProfiles.Profile profile = CallProfiles.load(options.name).orElseThrow(() -> new CliError(
+        CallProfiles.load(options.name).orElseThrow(() -> new CliError(
                 "'" + options.name + "' is not a registered service. See `smithy register --list`."));
         java.nio.file.Path artifact = CallProfiles.modelArtifact(options.name);
         if (!java.nio.file.Files.isRegularFile(artifact)) {

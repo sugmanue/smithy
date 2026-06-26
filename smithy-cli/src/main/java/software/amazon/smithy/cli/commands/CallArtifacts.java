@@ -37,6 +37,7 @@ import software.amazon.smithy.jmespath.JmespathExpression;
 import software.amazon.smithy.model.Model;
 import software.amazon.smithy.model.knowledge.TopDownIndex;
 import software.amazon.smithy.model.loader.ModelAssembler;
+import software.amazon.smithy.model.loader.smf.SmfWriter;
 import software.amazon.smithy.model.node.Node;
 import software.amazon.smithy.model.shapes.ModelSerializer;
 import software.amazon.smithy.model.shapes.OperationShape;
@@ -155,6 +156,10 @@ final class CallArtifacts {
             } else {
                 Files.deleteIfExists(CallProfiles.bytecodeArtifact(name));
             }
+
+            // SMF binary (full model with docs, for selective + full loading).
+            Files.write(CallProfiles.smfArtifact(name),
+                    SmfWriter.builder().build().serialize(model));
         } catch (IOException e) {
             throw new CliError("Unable to write registration artifacts for " + name + ": " + e.getMessage());
         }

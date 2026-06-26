@@ -73,6 +73,8 @@ import software.amazon.smithy.java.rulesengine.Bytecode;
 import software.amazon.smithy.java.rulesengine.RulesEngineBuilder;
 import software.amazon.smithy.java.rulesengine.RulesEngineSettings;
 import software.amazon.smithy.model.Model;
+import software.amazon.smithy.model.loader.smf.SelectiveLoadRequest;
+import software.amazon.smithy.model.loader.smf.SmfReader;
 import software.amazon.smithy.model.node.ArrayNode;
 import software.amazon.smithy.model.node.BooleanNode;
 import software.amazon.smithy.model.node.Node;
@@ -123,6 +125,8 @@ import software.amazon.smithy.utils.StringUtils;
 final class CallCommand implements Command {
 
     private static final Logger LOGGER = Logger.getLogger(CallCommand.class.getName());
+    // Hold a strong reference so setLevel is not lost to GC.
+    private static final Logger SMITHY_JAVA_LOGGER = Logger.getLogger("software.amazon.smithy.java");
 
     static {
         // Use Smithy's own (fast) JSON serde provider rather than Jackson. The provider is selected
@@ -311,7 +315,7 @@ final class CallCommand implements Command {
         // on stderr is unwanted -- restrict the smithy-java namespace to SEVERE (errors only) unless
         // --debug is set. Output stays clean JSON; real errors still surface.
         if (!debug) {
-            Logger.getLogger("software.amazon.smithy.java").setLevel(Level.SEVERE);
+            SMITHY_JAVA_LOGGER.setLevel(Level.SEVERE);
         }
 
         try {
@@ -413,10 +417,31 @@ final class CallCommand implements Command {
 
     private int doCall(String name, CallProfiles.Profile profile, String operation, Options options,
             boolean debug, Env env) {
-        Model model = CallArtifacts.loadArtifactModel(CallProfiles.modelNoDocsArtifact(name), env.classLoader());
-        ShapeId serviceId = profile.service != null
-                ? CallArtifacts.resolveServiceByName(model, profile.service)
-                : CallArtifacts.resolveSoleService(model);
+        // Prefer SMF selective loading (fast path) when the artifact exists and service ID is known.
+        Path smfPath = CallProfiles.smfArtifact(name);
+        Model model;
+        ShapeId serviceId;
+        if (Files.isRegularFile(smfPath) && profile.service != null && profile.service.contains("#")) {
+            serviceId = ShapeId.from(profile.service);
+            ShapeId operationId = ShapeId.fromParts(serviceId.getNamespace(), operation);
+            try {
+                byte[] smfBytes = Files.readAllBytes(smfPath);
+                model = SmfReader.readSelective(smfBytes,
+                        SelectiveLoadRequest.builder()
+                                .service(serviceId)
+                                .addOperation(operationId)
+                                .verifyCrc(false)
+                                .classLoader(env.classLoader())
+                                .build());
+            } catch (IOException e) {
+                throw new CliError("Unable to read SMF artifact: " + e.getMessage());
+            }
+        } else {
+            model = CallArtifacts.loadArtifactModel(CallProfiles.modelNoDocsArtifact(name), env.classLoader());
+            serviceId = profile.service != null
+                    ? CallArtifacts.resolveServiceByName(model, profile.service)
+                    : CallArtifacts.resolveSoleService(model);
+        }
         OperationShape opShape = CallArtifacts.resolveOperation(model, serviceId, operation);
         String opName = opShape.getId().getName();
 
@@ -873,6 +898,10 @@ final class CallCommand implements Command {
             case "restxml":
             case "aws.protocols#restxml":
                 return new RestXmlClientProtocol(serviceId);
+            case "aws-query":
+            case "awsquery":
+            case "aws.protocols#awsquery":
+                return new software.amazon.smithy.java.aws.client.awsquery.AwsQueryClientProtocol(serviceId, "");
             case "rpc-v2-cbor":
             case "rpcv2cbor":
             case "smithy.protocols#rpcv2cbor":
@@ -1031,7 +1060,17 @@ final class CallCommand implements Command {
 
     private int helpJson(String name, CallProfiles.Profile profile, String operation, Options options, Env env) {
         // Help uses the with-docs model so descriptions are available.
-        Model model = CallArtifacts.loadArtifactModel(CallProfiles.modelArtifact(name), env.classLoader());
+        Path smfPath = CallProfiles.smfArtifact(name);
+        Model model;
+        if (Files.isRegularFile(smfPath)) {
+            try {
+                model = SmfReader.read(Files.readAllBytes(smfPath));
+            } catch (IOException e) {
+                throw new CliError("Unable to read SMF artifact: " + e.getMessage());
+            }
+        } else {
+            model = CallArtifacts.loadArtifactModel(CallProfiles.modelArtifact(name), env.classLoader());
+        }
         ShapeId serviceId = profile.service != null
                 ? CallArtifacts.resolveServiceByName(model, profile.service)
                 : CallArtifacts.resolveSoleService(model);
@@ -1739,15 +1778,13 @@ final class CallCommand implements Command {
         if (bodyIsStreaming || !wantFull) {
             return; // never buffer a streaming payload, and only read bytes when --wire full needs them
         }
-        if (stream.hasKnownLength() || true) {
-            ByteBuffer buf = stream.asByteBuffer();
-            int n = buf.remaining();
-            int take = Math.min(n, WIRE_BODY_LIMIT);
-            byte[] bytes = new byte[take];
-            buf.duplicate().get(bytes);
-            msg.body = bytes;
-            msg.truncated = n > take;
-        }
+        ByteBuffer buf = stream.asByteBuffer();
+        int n = buf.remaining();
+        int take = Math.min(n, WIRE_BODY_LIMIT);
+        byte[] bytes = new byte[take];
+        buf.duplicate().get(bytes);
+        msg.body = bytes;
+        msg.truncated = n > take;
     }
 
     /**

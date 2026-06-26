@@ -1,0 +1,13 @@
+{
+    "version": "1.0",
+    "maven": {
+        "dependencies": [
+            "software.amazon.smithy.java:aws-client-awsquery:1.4.0"
+        ],
+        "repositories": [
+            {
+                "url": "file:///Users/sugmanue/.m2/repository"
+            }
+        ]
+    }
+}

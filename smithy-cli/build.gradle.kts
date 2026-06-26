@@ -24,6 +24,15 @@ description = "This module implements the Smithy command line interface."
 tasks.compileJava {
     options.release.set(21)
 }
+tasks.compileTestJava {
+    options.release.set(21)
+}
+tasks.named<JavaCompile>("compileItJava") {
+    options.release.set(21)
+}
+java {
+    targetCompatibility = JavaVersion.VERSION_21
+}
 
 extra["displayName"] = "Smithy :: CLI"
 extra["moduleName"] = "software.amazon.smithy.cli"
@@ -105,6 +114,7 @@ dependencies {
         "aws-client-restjson",
         "aws-client-awsjson",
         "aws-client-restxml",
+        "aws-client-awsquery",
         "client-rpcv2-cbor",
         "client-rpcv2-json",
         "aws-client-core",

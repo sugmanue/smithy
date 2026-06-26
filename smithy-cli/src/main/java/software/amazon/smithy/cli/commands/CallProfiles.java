@@ -208,6 +208,10 @@ final class CallProfiles {
         return artifactDir(name).resolve("model-no-docs.json");
     }
 
+    static Path smfArtifact(String name) {
+        return artifactDir(name).resolve("model.smf");
+    }
+
     static Path bytecodeArtifact(String name) {
         return artifactDir(name).resolve("endpoint.bdd");
     }
@@ -299,7 +303,10 @@ final class CallProfiles {
 
     private static void write(Path path, ObjectNode root) {
         try {
-            Files.createDirectories(path.getParent());
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             Files.writeString(path, Node.prettyPrintJson(root) + System.lineSeparator(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new CliError("Unable to write " + path + ": " + e.getMessage());
