@@ -30,17 +30,6 @@ public interface TraitFactory {
     Optional<Trait> createTrait(ShapeId id, ShapeId target, Node value);
 
     /**
-     * @return the classloader used to discover trait providers, or null if unknown.
-     *
-     * <p>Factories created via {@link #createServiceFactory(ClassLoader)} return that classloader
-     * so it can be threaded into providers that need it (see
-     * {@link TraitService#createTrait(ShapeId, Node, ClassLoader)}). The default returns null.
-     */
-    default ClassLoader traitClassLoader() {
-        return null;
-    }
-
-    /**
      * Creates a TraitFactory that uses a List of TraitService provider instances.
      *
      * @param services List of TraitService provider instances.
@@ -91,11 +80,6 @@ public interface TraitFactory {
         public Optional<Trait> createTrait(ShapeId id, ShapeId target, Node value) {
             return Optional.ofNullable(serviceMap.get(id))
                     .map(provider -> provider.createTrait(target, value, classLoader));
-        }
-
-        @Override
-        public ClassLoader traitClassLoader() {
-            return classLoader;
         }
     }
 }
