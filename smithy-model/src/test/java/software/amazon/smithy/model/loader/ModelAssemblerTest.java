@@ -590,6 +590,133 @@ public class ModelAssemblerTest {
     }
 
     @Test
+    public void mergesTraitsAppliedByEachDefinitionOfAShape() {
+        // Traits are applied separately from shape definitions, so definitions that apply
+        // different traits define one shape: list traits are concatenated in input order, and a
+        // trait applied by only one definition is kept.
+        String a = "{\"smithy\": \"2.0\", \"shapes\": {\"ns.foo#Structure\": {"
+                + "\"type\": \"structure\", "
+                + "\"members\": {\"member\": {\"target\": \"smithy.api#String\", "
+                + "\"traits\": {\"smithy.api#tags\": [\"a\"]}}}, "
+                + "\"traits\": {\"smithy.api#tags\": [\"a\"]}}}}";
+        String b = "{\"smithy\": \"2.0\", \"shapes\": {\"ns.foo#Structure\": {"
+                + "\"type\": \"structure\", "
+                + "\"members\": {\"member\": {\"target\": \"smithy.api#String\", "
+                + "\"traits\": {\"smithy.api#tags\": [\"b\"]}}}, "
+                + "\"traits\": {\"smithy.api#tags\": [\"b\"], "
+                + "\"smithy.api#documentation\": \"Only in b\"}}}}";
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", a)
+                .addUnparsedModel("b.json", b)
+                .assemble();
+
+        assertThat(result.getValidationEvents(), hasSize(1));
+        ValidationEvent note = result.getValidationEvents().get(0);
+        assertThat(note.getSeverity(), equalTo(Severity.NOTE));
+        assertThat(note.getId(), equalTo("Model.IgnoredDuplicateDefinition"));
+
+        Model model = result.unwrap();
+        StructureShape shape = model.expectShape(ShapeId.from("ns.foo#Structure"), StructureShape.class);
+        assertThat(shape.expectTrait(TagsTrait.class).getValues(), contains("a", "b"));
+        assertThat(shape.expectTrait(DocumentationTrait.class).getValue(), equalTo("Only in b"));
+        MemberShape member = shape.getMember("member").get();
+        assertThat(member.expectTrait(TagsTrait.class).getValues(), contains("a", "b"));
+    }
+
+    @Test
+    public void conflictingTraitsAppliedByDefinitionsOfAShapeFail() {
+        String a = "{\"smithy\": \"2.0\", \"shapes\": {\"ns.foo#String\": {"
+                + "\"type\": \"string\", \"traits\": {\"smithy.api#documentation\": \"a\"}}}}";
+        String b = "{\"smithy\": \"2.0\", \"shapes\": {\"ns.foo#String\": {"
+                + "\"type\": \"string\", \"traits\": {\"smithy.api#documentation\": \"b\"}}}}";
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", a)
+                .addUnparsedModel("b.json", b)
+                .assemble();
+
+        List<ValidationEvent> errors = result.getValidationEvents(Severity.ERROR);
+        assertThat(errors, hasSize(1));
+        assertThat(errors.get(0).getId(), equalTo("Model"));
+        assertThat(errors.get(0).getMessage(),
+                startsWith("Conflicting `smithy.api#documentation` trait found on shape `ns.foo#String`"));
+    }
+
+    private static final String UNKNOWN_TRAIT_DOCUMENT = "{\"smithy\": \"2.0\", \"shapes\": {"
+            + "\"ns.foo#String\": {\"type\": \"string\", \"traits\": {\"com.foo#invalidTrait\": true}}}}";
+
+    @Test
+    public void unknownTraitsAreErrorsByDefault() {
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", UNKNOWN_TRAIT_DOCUMENT)
+                .assemble();
+
+        assertThat(eventsWithId(result, "Model.UnresolvedTrait"), contains(Severity.ERROR));
+        assertTrue(result.isBroken());
+    }
+
+    @Test
+    public void allowUnknownTraitsReportsWarningsAndKeepsTheTraits() {
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", UNKNOWN_TRAIT_DOCUMENT)
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS, true)
+                .assemble();
+
+        assertThat(eventsWithId(result, "Model.UnresolvedTrait"), contains(Severity.WARNING));
+        assertFalse(result.isBroken());
+        Shape shape = result.unwrap().expectShape(ShapeId.from("ns.foo#String"));
+        assertThat(shape.findTrait(ShapeId.from("com.foo#invalidTrait")).get(), instanceOf(DynamicTrait.class));
+    }
+
+    @Test
+    public void allowUnknownTraitsQuietSuppressesTheWarnings() {
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", UNKNOWN_TRAIT_DOCUMENT)
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS, true)
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS_QUIET, true)
+                .assemble();
+
+        assertThat(eventsWithId(result, "Model.UnresolvedTrait"), empty());
+        assertFalse(result.isBroken());
+        Shape shape = result.unwrap().expectShape(ShapeId.from("ns.foo#String"));
+        assertThat(shape.findTrait(ShapeId.from("com.foo#invalidTrait")).get(), instanceOf(DynamicTrait.class));
+    }
+
+    @Test
+    public void allowUnknownTraitsQuietIsIgnoredWithoutAllowUnknownTraits() {
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", UNKNOWN_TRAIT_DOCUMENT)
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS_QUIET, true)
+                .assemble();
+
+        assertThat(eventsWithId(result, "Model.UnresolvedTrait"), contains(Severity.ERROR));
+        assertTrue(result.isBroken());
+    }
+
+    @Test
+    public void allowUnknownTraitsStillRejectsShapesThatAreNotTraits() {
+        String document = "{\"smithy\": \"2.0\", \"shapes\": {"
+                + "\"ns.foo#NotATrait\": {\"type\": \"string\"}, "
+                + "\"ns.foo#String\": {\"type\": \"string\", \"traits\": {\"ns.foo#NotATrait\": \"x\"}}}}";
+        ValidatedResult<Model> result = new ModelAssembler()
+                .addUnparsedModel("a.json", document)
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS, true)
+                .assemble();
+
+        List<ValidationEvent> errors = result.getValidationEvents(Severity.ERROR);
+        assertThat(errors, hasSize(1));
+        assertThat(errors.get(0).getId(), equalTo("Model"));
+        assertThat(errors.get(0).getMessage(), startsWith("Shape `ns.foo#NotATrait` cannot be applied as a trait"));
+    }
+
+    private static List<Severity> eventsWithId(ValidatedResult<Model> result, String id) {
+        return result.getValidationEvents()
+                .stream()
+                .filter(event -> event.getId().equals(id))
+                .map(ValidationEvent::getSeverity)
+                .collect(Collectors.toList());
+    }
+
+    @Test
     public void canIgnoreUnknownTraits() {
         String document =
                 "{\"smithy\": \"" + Model.MODEL_VERSION + "\", "
